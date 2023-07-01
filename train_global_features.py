@@ -1,7 +1,8 @@
 import os
+import json
 from pathlib import Path
-import albumentations as albu
-import albumentations.pytorch
+import torchvision.transforms.functional as F
+import torchvision.transforms as transforms
 
 import torch
 import torch.nn as nn
@@ -9,15 +10,17 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 
-from utils import t2d, seed_all, ImagesDataset
-from models import EfficientNetEncoder, GENetEncoder, EncoderGlobalFeatures
+import matplotlib
+import matplotlib.pyplot as plt
 
+from utils import *
+from models import EfficientNetEncoder, GENetEncoder, EncoderGlobalFeatures
 
 torch.autograd.set_detect_anomaly(False)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
-DATA_DIR = "imagewoof2-320"
+DATA_DIR = "/scratch/as216/amur/"
 
 
 def main():
@@ -29,40 +32,33 @@ def main():
 
     train_batch_size = 128
     valid_batch_size = 128
-    n_epochs = 40
+    n_epochs = 2
 
     # loaders
-    train_transforms = albu.Compose(
-        [
-            albu.Resize(256, 256),
-            albu.RandomCrop(224, 224),
-            albu.HorizontalFlip(),
-            albu.Normalize(),
-            albu.pytorch.ToTensorV2(),
-        ]
-    )
+    train_transforms = transforms.Compose([transforms.Resize(256), transforms.RandomCrop(224), transforms.RandomHorizontalFlip(),  transforms.ToTensor(), transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),])
+    val_transforms = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor(), transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))])
 
-    valid_transforms = albu.Compose(
-        [albu.Resize(224, 224), albu.Normalize(), albu.pytorch.ToTensorV2()]
-    )
 
-    classes = sorted(set(os.listdir(os.path.join(DATA_DIR, "train"))))
-    if set(classes) != set(os.listdir(os.path.join(DATA_DIR, "val"))):
-        raise ValueError("Different classes in train & valid folders!")
-
-    class2index = {item: num for num, item in enumerate(classes)}
-
-    def _images_and_classes(folder):
-        files, targets = [], []
-        for file in folder.glob("*/*.JPEG"):
-            image_folder = str(file).split("/")[-2]
-            files.append(str(file))
-            targets.append(class2index[image_folder])
-        return files, targets
-
-    train_dataset = ImagesDataset(
-        *_images_and_classes(Path(DATA_DIR) / "train"), transforms=train_transforms
-    )
+    with open(DATA_DIR + 'labels_train.json', 'r') as f:
+      json_dict = json.load(f)
+    
+    labels_dict = json_dict["labels"]
+    
+    images = []
+    targets = []
+    
+    for key in labels_dict.keys():
+      images.append(DATA_DIR + "train/" + key + ".jpg")
+      targets.append(labels_dict[key])
+        
+    split = int(len(images)*0.8)
+    images_train = images[:split]
+    images_val = images[split:]
+    
+    targets_train = targets[:split]
+    targets_val = targets[split:]
+    
+    train_dataset = ImagesDataset(images_train, targets_train, transforms=train_transforms )
     train_loader = DataLoader(
         train_dataset,
         batch_size=train_batch_size,
@@ -71,11 +67,10 @@ def main():
         drop_last=True,
     )
 
-    valid_dataset = ImagesDataset(
-        *_images_and_classes(Path(DATA_DIR) / "val"), transforms=valid_transforms
-    )
-    valid_loader = DataLoader(
-        valid_dataset,
+    val_dataset = ImagesDataset(images_val, targets_val, transforms=val_transforms )
+
+    val_loader = DataLoader(
+        val_dataset,
         batch_size=valid_batch_size,
         shuffle=False,
         num_workers=os.cpu_count(),
@@ -87,7 +82,7 @@ def main():
 
     encoder = EfficientNetEncoder("efficientnet-b1")
     # encoder = GENetEncoder("normal", "pretrains")
-    model = EncoderGlobalFeatures(encoder, emb_dim=3, num_classes=10)
+    model = EncoderGlobalFeatures(encoder, emb_dim=3, num_classes=107)
 
     model = model.to(device)
     if has_multiple_devices:
