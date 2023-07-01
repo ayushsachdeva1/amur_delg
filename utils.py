@@ -1,13 +1,11 @@
 import random
 import numpy as np
-import cv2
 import torch
 from torch.utils.data import Dataset
-
+from PIL import Image
 
 def load_image(file):
-    img = cv2.imread(str(file))
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img = Image.open(file)
     return img
 
 
@@ -53,8 +51,7 @@ class ImagesDataset(Dataset):
         img = load_image(file)
 
         if self.transforms is not None:
-            img = self.transforms(image=img)["image"]
-
+            img = self.transforms(img)
         if self.targets is None:
             return img
 
