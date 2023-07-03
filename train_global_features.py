@@ -112,7 +112,7 @@ def main():
         valid_loss = 0.0
         accuracy = 0.0
         with torch.no_grad():
-            for batch in valid_loader:
+            for batch in val_loader:
                 x, y = t2d(batch, device)
                 output = model(x, y)
                 loss = criterion(output, y)
