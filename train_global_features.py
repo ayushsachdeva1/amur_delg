@@ -38,18 +38,21 @@ def main():
     train_transforms = transforms.Compose([transforms.Resize(256), transforms.RandomCrop(224), transforms.RandomHorizontalFlip(),  transforms.ToTensor(), transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),])
     val_transforms = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor(), transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))])
 
-
     with open(DATA_DIR + 'labels_train.json', 'r') as f:
       json_dict = json.load(f)
     
     labels_dict = json_dict["labels"]
+
+    enum = list(enumerate(list(set(labels_dict.values()))))
+    class_to_target = dict((j, i) for i, j in list(enum))
+    target_to_class = dict(enum)
     
     images = []
     targets = []
     
     for key in labels_dict.keys():
       images.append(DATA_DIR + "train/" + key + ".jpg")
-      targets.append(labels_dict[key])
+      targets.append(class_to_target[labels_dict[key]])
         
     split = int(len(images)*0.8)
     images_train = images[:split]
