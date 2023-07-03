@@ -131,11 +131,11 @@ def main():
         )
 
     out_file = "global_features.pth"
-    torch.save({"model_state_dict": model.module.state_dict()}, out_file)
+    torch.save({"model_state_dict": model.state_dict()}, out_file)
     print(f"Saved model to '{out_file}'")
 
     out_file = "encoder.pth"
-    torch.save({"encoder_state_dict": model.module.encoder.state_dict()}, out_file)
+    torch.save({"encoder_state_dict": model.encoder.state_dict()}, out_file)
     print(f"Saved encoder to '{out_file}'")
 
 
